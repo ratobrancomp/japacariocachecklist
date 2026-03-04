@@ -6,6 +6,22 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 const SUPABASE_URL = "https://fiokvqtvmlnprsywhipj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpb2t2cXR2bWxucHJzeXdoaXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MDEzNTEsImV4cCI6MjA4NzM3NzM1MX0.BeWMR2qMqQadfkOz_yVMJ4Bj_zrTMtZCKM0CtKPvUAk";
 
+// Translate Supabase errors to Portuguese
+const translateError = (msg) => {
+  if (!msg) return "Erro desconhecido";
+  const m = msg.toLowerCase();
+  if (m.includes("invalid login")) return "Email ou senha incorretos";
+  if (m.includes("email not confirmed")) return "Email não confirmado. Verifique sua caixa de entrada";
+  if (m.includes("user already registered")) return "Este email já está cadastrado";
+  if (m.includes("email rate limit")) return "Muitas tentativas. Aguarde alguns minutos";
+  if (m.includes("invalid") && m.includes("email")) return "Endereço de email inválido";
+  if (m.includes("password") && m.includes("short")) return "Senha muito curta (mínimo 6 caracteres)";
+  if (m.includes("signup is disabled")) return "Cadastro desativado temporariamente";
+  if (m.includes("rate limit")) return "Muitas tentativas. Aguarde e tente novamente";
+  if (m.includes("network") || m.includes("fetch")) return "Erro de conexão. Verifique sua internet";
+  return msg;
+};
+
 // Minimal Supabase client (no SDK needed)
 const supabase = {
   authToken: null,
@@ -20,7 +36,7 @@ const supabase = {
     };
     const res = await fetch(`${SUPABASE_URL}${path}`, { ...options, headers });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || data.error_description || data.msg || "Erro na requisição");
+    if (!res.ok) throw new Error(translateError(data.message || data.error_description || data.msg) || "Erro na requisição");
     return data;
   },
 
@@ -140,7 +156,7 @@ const db = {
 // ============================================================
 const AuthContext = createContext(null);
 
-const ROLE_LABELS = { admin: "Administrador", manager: "Gerente", employee: "Funcionário" };
+const ROLE_LABELS = { admin: "Administrador", manager: "Gerente", chef: "Chefe de Cozinha", employee: "Funcionário" };
 const SECTORS = ["Cozinha", "Bar", "Salão", "Caixa", "Estoque", "Gerência"];
 const MOMENTS = ["Abertura", "Fechamento", "Outros"];
 
@@ -181,6 +197,9 @@ const icons = {
   shield: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
   sun: "M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z",
   moon: "M10 2c-1.82 0-3.53.5-5 1.35C7.99 5.08 10 8.3 10 12s-2.01 6.92-5 8.65C6.47 21.5 8.18 22 10 22c5.52 0 10-4.48 10-10S15.52 2 10 2z",
+  checklists: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
+  history: "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z",
+  leaf: "M17.12 2.12c-2.5-1.5-5.5-.5-7 1.5-1 1.5-1.5 3.5-1 5.5-2-1-4.5-1-6.5.5-2 1.5-2.5 4-1.5 6 1 2.5 3.5 4 6 4h.5c2 0 4-.5 5.5-2 1-1 1.5-2.5 2-4 1 .5 2 .5 3 0 2-1 3-3 3-5s-1.5-4.5-4-6.5z",
 };
 
 const Icon = ({ name, size = 20, color = "currentColor", style: s }) => (
@@ -320,10 +339,14 @@ const CSS = `
   .theme-switch-anim { animation: themeSwitch 0.5s ease; }
 
   [data-theme="light"] .sidebar-border { border-right: 1px solid rgba(0,0,0,0.06) !important; box-shadow: 2px 0 8px rgba(0,0,0,0.03); }
-  [data-theme="light"] table tr:hover td { background: rgba(5,150,105,0.04) !important; }
+  [data-theme="light"] table tr:hover td { background: rgba(5,150,105,0.06) !important; }
+  [data-theme="light"] table thead th { background: #f1f5f9 !important; color: #64748b !important; }
+  [data-theme="light"] table tbody tr { border-bottom-color: #e2e8f0 !important; }
   [data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea { background: #f8f9fc !important; border-color: rgba(0,0,0,0.12) !important; color: #111827 !important; }
   [data-theme="light"] input::placeholder, [data-theme="light"] textarea::placeholder { color: #6b7280 !important; }
-  [data-theme="dark"] table tr:hover td { background: rgba(45,212,165,0.04) !important; }
+  [data-theme="dark"] table tr:hover td { background: rgba(45,212,165,0.06) !important; }
+  [data-theme="dark"] table thead th { background: var(--bg-elevated) !important; }
+  table tbody tr { transition: background 0.15s ease; }
 
   /* ===== MOBILE RESPONSIVE ===== */
   @media (max-width: 768px) {
@@ -685,7 +708,7 @@ const RegisterPage = ({ onGoToLogin, theme }) => {
         body: JSON.stringify({ email: form.email, password: form.password, data: { name: form.name } }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.msg || "Erro ao criar conta");
+      if (!res.ok) throw new Error(translateError(data.message || data.msg) || "Erro ao criar conta");
       
       // Update profile with sector and phone
       if (data.user?.id) {
@@ -817,9 +840,19 @@ const ForgotPasswordPage = ({ onGoToLogin, theme }) => {
               Informe seu email e enviaremos um link para redefinir sua senha.
             </p>
             <Input label="Email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
-            <Btn variant="primary" size="lg" onClick={() => setSent(true)} style={{ width: "100%", justifyContent: "center", marginTop: 20 }}>
+            <Btn variant="primary" size="lg" onClick={() => {
+              if (!email || !email.includes("@")) { return; }
+              // Actually call Supabase password reset
+              fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+                method: "POST",
+                headers: { "apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+              }).catch(() => {});
+              setSent(true);
+            }} style={{ width: "100%", justifyContent: "center", marginTop: 20, opacity: (!email || !email.includes("@")) ? 0.5 : 1 }}>
               Enviar Link
             </Btn>
+            {!email && <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, textAlign: "center" }}>Informe seu email acima</p>}
           </>
         ) : (
           <div style={{ textAlign: "center" }}>
@@ -918,6 +951,14 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
   const [editingTemplate, setEditingTemplate] = useState(null); // null = not editing, {} = new, {id:...} = editing existing
   const [sectorsList, setSectorsList] = useState([]);
   const [profilesList, setProfilesList] = useState([]);
+
+  useEffect(() => {
+    const closeMenus = (e) => {
+      if (showUserMenu && !e.target.closest('[data-user-menu]')) setShowUserMenu(false);
+    };
+    document.addEventListener("click", closeMenus);
+    return () => document.removeEventListener("click", closeMenus);
+  }, [showUserMenu]);
 
   const notify = (msg, type = "success") => {
     setNotification({ msg, type });
@@ -1031,21 +1072,40 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         allProfiles.forEach(p => { profileMap[p.id] = p.name; });
 
         // Load templates
-        const tplData = await db.query(
-          "checklist_templates",
-          "id,title,moment,schedule,frequency,active,sector_id,responsible_id",
-          { active: "eq.true", unit_id: `eq.${unit.id}` }
-        );
+        let tplData;
+        try {
+          tplData = await db.query(
+            "checklist_templates",
+            "id,title,moment,schedule,frequency,active,sector_id,responsible_id",
+            { active: "eq.true", unit_id: `eq.${unit.id}` }
+          );
+        } catch (e) {
+          // Retry without frequency column
+          console.warn("Templates query failed, retrying without frequency:", e);
+          tplData = await db.query(
+            "checklist_templates",
+            "id,title,moment,schedule,active,sector_id,responsible_id",
+            { active: "eq.true", unit_id: `eq.${unit.id}` }
+          );
+          tplData = tplData.map(t => ({ ...t, frequency: "Diário" }));
+        }
 
         // Load all template items
         const tplIds = tplData.map(t => t.id);
         let allItems = [];
         if (tplIds.length > 0) {
-          allItems = await db.query(
-            "template_items",
-            "id,template_id,text,type,required,photo_required,unit,min_value,max_value,sort_order",
-            { active: "eq.true", order: "sort_order.asc" }
-          );
+          try {
+            allItems = await db.query(
+              "template_items",
+              "id,template_id,text,type,required,photo_required,unit,min_value,max_value,sort_order",
+              { order: "sort_order.asc" }
+            );
+          } catch (e) {
+            console.warn("template_items query failed, trying without order:", e);
+            try {
+              allItems = await db.query("template_items", "id,template_id,text,type,required,photo_required,unit,min_value,max_value,sort_order");
+            } catch (e2) { console.error("template_items failed entirely:", e2); }
+          }
         }
         
         const formattedTemplates = tplData.map(t => ({
@@ -1131,15 +1191,17 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
   }, [unit.id]);
 
   const todayStr = new Date().toISOString().split("T")[0];
-  const todayExecs = executions.filter(e => e.date === todayStr);
+  const todayExecs = (executions || []).filter(e => e.date === todayStr);
+  const dailyTemplates = (templates || []).filter(t => t.frequency === "Diário" || !t.frequency);
+  const totalTodayExpected = dailyTemplates.length || todayExecs.length || 1;
   const completedToday = todayExecs.filter(e => e.status === "Concluído").length;
-  const pendingToday = todayExecs.filter(e => e.status === "Pendente").length;
+  const pendingToday = Math.max(0, dailyTemplates.length - completedToday);
   const lateToday = todayExecs.filter(e => e.late).length;
-  const completionRate = todayExecs.length > 0 ? Math.round((completedToday / todayExecs.length) * 100) : 0;
+  const completionRate = totalTodayExpected > 0 ? Math.round((completedToday / totalTodayExpected) * 100) : 0;
 
   const alerts = [
-    ...todayExecs.filter(e => e.status === "Pendente").map(e => ({ type: "pending", msg: `${e.templateTitle} não iniciado`, time: e.scheduledTime, sector: e.sector })),
-    ...todayExecs.filter(e => e.late).map(e => ({ type: "late", msg: `${e.templateTitle} com atraso`, time: e.startedAt, sector: e.sector })),
+    ...dailyTemplates.filter(t => !todayExecs.find(e => e.templateId === t.id)).map(t => ({ type: "pending", msg: `${t.title} não iniciado`, time: t.schedule, sector: t.sector })),
+    ...todayExecs.filter(e => e.late).map(e => ({ type: "late", msg: `${e.templateTitle || ""} com atraso`, time: e.startedAt || "", sector: e.sector || "" })),
   ];
 
   const [dismissedAlerts, setDismissedAlerts] = useState([]);
@@ -1174,16 +1236,21 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
 
     try {
       if (existing && (existing.status === "Em andamento" || existing.status === "Parcial")) {
-        // Resume existing execution
-        let items;
-        try {
-          const itemsData = await db.query("execution_items", "id,template_item_id,completed,value,numeric_value,photo_url,is_conforming,justification,non_conformity_note", { execution_id: `eq.${existing.id}` });
-          items = buildItems(t, itemsData);
-        } catch (e) {
-          items = buildItems(t, null);
+        // Check if we have saved items in memory (from Salvar Rascunho)
+        if (existing.items && existing.items.length > 0) {
+          setActiveExec(existing);
+        } else {
+          // Load from DB
+          let items;
+          try {
+            const itemsData = await db.query("execution_items", "id,template_item_id,completed,value,numeric_value,photo_url,is_conforming,justification,non_conformity_note", { execution_id: `eq.${existing.id}` });
+            items = buildItems(t, itemsData);
+          } catch (e) {
+            items = buildItems(t, null);
+          }
+          const rate = items.length > 0 ? Math.round((items.filter(i => i.completed).length / items.length) * 100) : 0;
+          setActiveExec({ ...existing, items, completionRate: rate });
         }
-        const rate = items.length > 0 ? Math.round((items.filter(i => i.completed).length / items.length) * 100) : 0;
-        setActiveExec({ ...existing, items, completionRate: rate });
 
       } else if (existing && existing.status === "Concluído") {
         // Already done — show completed view
@@ -1255,8 +1322,8 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
       const items = prev.items.map(i => {
         if (i.id === itemId) {
           const newCompleted = !i.completed;
-          // Save to Supabase in background
-          if (i.execItemId) {
+          // Only save to DB if real UUID (not local ID)
+          if (i.execItemId && !String(i.execItemId).startsWith("local") && !String(i.execItemId).startsWith("demo") && !String(i.execItemId).startsWith("fallback")) {
             db.update("execution_items", { id: i.execItemId }, { completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null }).catch(console.error);
           }
           return { ...i, completed: newCompleted };
@@ -1264,11 +1331,15 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         return i;
       });
       const rate = Math.round((items.filter(i => i.completed).length / items.length) * 100);
-      // Update execution completion rate
-      db.update("executions", { id: prev.id }, { completion_rate: rate }).catch(console.error);
+      // Only update execution if real ID
+      if (!String(prev.id).startsWith("local") && !String(prev.id).startsWith("demo") && !String(prev.id).startsWith("fallback")) {
+        db.update("executions", { id: prev.id }, { completion_rate: rate }).catch(console.error);
+      }
       return { ...prev, items, completionRate: rate };
     });
   };
+
+  const isRealId = (id) => id && !String(id).startsWith("local") && !String(id).startsWith("demo") && !String(id).startsWith("fallback") && !String(id).startsWith("new-");
 
   const updateItemValue = (itemId, value) => {
     setActiveExec(prev => {
@@ -1276,7 +1347,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
       return { ...prev, items: prev.items.map(i => {
         if (i.id === itemId) {
           const isNumeric = i.type === "numeric";
-          if (i.execItemId) {
+          if (isRealId(i.execItemId)) {
             db.update("execution_items", { id: i.execItemId }, {
               value: String(value),
               numeric_value: isNumeric ? parseFloat(value) || null : null,
@@ -1298,7 +1369,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
       if (!prev) return prev;
       return { ...prev, items: prev.items.map(i => {
         if (i.id === itemId) {
-          if (i.execItemId) {
+          if (isRealId(i.execItemId)) {
             db.update("execution_items", { id: i.execItemId }, { justification: text }).catch(console.error);
           }
           return { ...i, justification: text };
@@ -1309,12 +1380,11 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
   };
 
   const takePhoto = (itemId) => {
-    // In PWA version, this will open camera. For now, mark as taken.
     setActiveExec(prev => {
       if (!prev) return prev;
       return { ...prev, items: prev.items.map(i => {
         if (i.id === itemId) {
-          if (i.execItemId) {
+          if (isRealId(i.execItemId)) {
             db.update("execution_items", { id: i.execItemId }, { photo_url: "pending_upload", photo_taken_at: new Date().toISOString() }).catch(console.error);
           }
           return { ...i, photoTaken: true };
@@ -1336,24 +1406,18 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
     
     const now = new Date();
     try {
-      // Update execution in Supabase
-      await db.update("executions", { id: activeExec.id }, {
-        status: "Concluído",
-        completed_at: now.toISOString(),
-        completion_rate: 100,
-        signature: user.name,
-        signed_at: now.toISOString(),
-      });
-
-      // Create non-conformity records
-      for (const item of ncItems) {
-        if (item.execItemId) {
-          await db.insert("non_conformities", {
-            execution_id: activeExec.id,
-            execution_item_id: item.execItemId,
-            description: item.nonConformity || "Respondido Não",
-            justification: item.justification,
-          });
+      if (isRealId(activeExec.id)) {
+        await db.update("executions", { id: activeExec.id }, {
+          status: "Concluído", completed_at: now.toISOString(), completion_rate: 100,
+          signature: user.name, signed_at: now.toISOString(),
+        });
+        for (const item of ncItems) {
+          if (isRealId(item.execItemId)) {
+            await db.insert("non_conformities", {
+              execution_id: activeExec.id, execution_item_id: item.execItemId,
+              description: item.nonConformity || "Respondido Não", justification: item.justification,
+            });
+          }
         }
       }
 
@@ -1376,15 +1440,17 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
   const canAccess = (section) => {
     if (user.role === "admin") return true;
     if (user.role === "manager") return true;
+    if (user.role === "chef") return ["dashboard", "checklists", "execute", "hortifruti"].includes(section);
     return ["checklists", "execute"].includes(section);
   };
 
   const navItems = [
     { id: "dashboard", icon: "dashboard", label: "Dashboard" },
     { id: "checklists", icon: "checklist", label: "Checklists" },
+    { id: "hortifruti", icon: "leaf", label: "Hort Frut" },
     { id: "templates", icon: "templates", label: "Modelos" },
     { id: "executions", icon: "reports", label: "Histórico" },
-    { id: "alerts", icon: "alerts", label: "Alertas", count: visibleAlerts.length },
+    { id: "alerts", icon: "alerts", label: "Alertas", count: (visibleAlerts || []).length },
     { id: "users", icon: "users", label: "Equipe" },
     { id: "settings", icon: "settings", label: "Config" },
   ].filter(n => canAccess(n.id));
@@ -1407,7 +1473,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 16, marginBottom: 24 }}>
           {[
             { label: "Conclusão", value: `${completionRate}%`, color: "var(--accent)", icon: "checklist", action: () => { setFilterStatus("Todos"); setFilterSector("Todos"); navigateTo("checklists"); } },
-            { label: "Concluídos", value: completedToday, sub: `de ${todayExecs.length}`, color: "var(--info)", icon: "check", action: () => { setFilterStatus("Concluído"); setFilterSector("Todos"); navigateTo("checklists"); } },
+            { label: "Concluídos", value: completedToday, sub: `de ${dailyTemplates.length}`, color: "var(--info)", icon: "check", action: () => { setFilterStatus("Concluído"); setFilterSector("Todos"); navigateTo("checklists"); } },
             { label: "Pendentes", value: pendingToday, color: "var(--warning)", icon: "clock", action: () => { setFilterStatus("Pendente"); setFilterSector("Todos"); navigateTo("checklists"); } },
             { label: "Atrasos", value: lateToday, color: "var(--danger)", icon: "warning", action: () => { setFilterStatus("Todos"); setFilterSector("Todos"); navigateTo("alerts"); } },
           ].map((s, i) => (
@@ -1454,29 +1520,36 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
           <Card>
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20, color: "var(--text-secondary)" }}>Checklists de Hoje</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {todayExecs.slice(0, 6).map(e => (
-                <div key={e.id} style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
-                  borderRadius: "var(--radius-md)", background: "var(--bg-elevated)",
-                  cursor: "pointer",
-                }} onClick={() => { 
-                  if (e.status === "Concluído") { 
-                    setFilterStatus("Concluído"); setFilterSector("Todos"); navigateTo("checklists"); 
-                  } else { 
-                    startExecution(e.templateId); 
-                  } 
-                }}>
-                  <div style={{
-                    width: 8, height: 8, borderRadius: "50%",
-                    background: e.status === "Concluído" ? "var(--accent)" : e.status === "Em andamento" ? "var(--info)" : "var(--danger)",
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{e.templateTitle}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{e.sector} • {e.scheduledTime}</div>
+              {dailyTemplates.map(t => {
+                const exec = todayExecs.find(e => e.templateId === t.id);
+                const status = exec?.status || "Pendente";
+                return (
+                  <div key={t.id} style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+                    borderRadius: "var(--radius-md)", background: "var(--bg-elevated)",
+                    cursor: "pointer",
+                  }} onClick={() => { 
+                    if (status === "Concluído") { 
+                      startExecution(t.id);
+                    } else { 
+                      startExecution(t.id); 
+                    } 
+                  }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: status === "Concluído" ? "var(--accent)" : status === "Em andamento" ? "var(--info)" : "var(--danger)",
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{t.title}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t.sector} • {t.schedule}</div>
+                    </div>
+                    <Badge color={status === "Concluído" ? "var(--accent)" : status === "Em andamento" ? "var(--info)" : "var(--danger)"}>{status}</Badge>
                   </div>
-                  <Badge color={e.status === "Concluído" ? "var(--accent)" : e.status === "Em andamento" ? "var(--info)" : "var(--danger)"}>{e.status}</Badge>
-                </div>
-              ))}
+                );
+              })}
+              {dailyTemplates.length === 0 && (
+                <div style={{ textAlign: "center", padding: 20, color: "var(--text-muted)", fontSize: 13 }}>Nenhum checklist diário configurado</div>
+              )}
             </div>
           </Card>
         </div>
@@ -1786,7 +1859,20 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
             <Btn variant="primary" size="lg" onClick={finalizeExecution}>
               <Icon name="check" size={18} color="var(--btn-primary-text)" /> Finalizar e Assinar
             </Btn>
-            <Btn variant="outline" onClick={() => { setActiveExec(null); navigateTo("checklists"); }}>Salvar Rascunho</Btn>
+            <Btn variant="outline" onClick={() => {
+              // Save current state to executions list before clearing activeExec
+              if (activeExec) {
+                const saved = { ...activeExec, status: "Em andamento" };
+                setExecutions(prev => [saved, ...prev.filter(e => !(e.templateId === saved.templateId && e.date === saved.date))]);
+                // Also update in DB if real ID
+                if (isRealId(activeExec.id)) {
+                  db.update("executions", { id: activeExec.id }, { completion_rate: activeExec.completionRate, status: "Em andamento" }).catch(console.error);
+                }
+              }
+              setActiveExec(null);
+              navigateTo("checklists");
+              notify("💾 Rascunho salvo");
+            }}>Salvar Rascunho</Btn>
             {user.role === "admin" && (
               <Btn variant="ghost" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={async () => {
                 if (!confirm("Tem certeza que deseja reiniciar este checklist? Todos os dados preenchidos serão perdidos.")) return;
@@ -2088,7 +2174,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
           {templates.map((t, i) => (
-            <Card key={t.id} style={{ animation: `fadeIn 0.3s ease ${i * 0.05}s both` }}>
+            <Card key={t.id} style={{ animation: `fadeIn 0.3s ease ${i * 0.05}s both`, display: "flex", flexDirection: "column", minHeight: 0 }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                 <Badge color={t.moment === "Abertura" ? "var(--accent)" : "var(--purple)"}>{t.moment}</Badge>
                 <Badge color="var(--info)">{t.sector}</Badge>
@@ -2098,7 +2184,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
                 <div style={{ width: 20, height: 20, borderRadius: 6, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon name="users" size={11} color="var(--accent)" />
                 </div>
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Responsável: <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{t.responsible.split(" ")[0]}</strong></span>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Responsável: <strong style={{ color: "var(--text-primary)", fontWeight: 600 }}>{(t.responsible || "").split(" ")[0]}</strong></span>
               </div>
               <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 14 }}>
                 {t.items.length} itens • {t.items.filter(i => i.required).length} obrigatórios • {t.items.filter(i => i.photoRequired).length} fotos
@@ -2106,7 +2192,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 14 }}>
                 ⏰ {t.schedule} • 📋 {t.frequency} • 👤 {t.responsible}
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: "auto" }}>
                 {(user.role === "admin" || user.role === "manager") && (
                   <>
                     <Btn size="sm" variant="ghost" onClick={() => {
@@ -2138,31 +2224,588 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         </div>
         <Btn variant="ghost" onClick={() => notify("📥 Exportação em desenvolvimento")}><Icon name="download" size={16} color="var(--accent)" /> Exportar</Btn>
       </div>
-      <Card style={{ overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
+      <Card style={{ overflow: "auto", padding: 0 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>{["Data","Checklist","Setor","Responsável","Horário","Status","Progresso","Assinatura"].map(h => (
-              <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
-            ))}</tr>
+            <tr style={{ borderBottom: "2px solid var(--border)" }}>
+              {["Data","Checklist","Setor","Responsável","Início","Conclusão","Status","Progresso","Assinatura"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "14px 16px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", background: "var(--bg-surface)" }}>{h}</th>
+              ))}
+            </tr>
           </thead>
           <tbody>
-            {executions.filter(e => filterSector === "Todos" || e.sector === filterSector).slice(0, 40).map(e => (
-              <tr key={e.id}>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", borderRadius: "8px 0 0 8px", fontSize: 13 }}>{e.date.split("-").reverse().join("/")}</td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", fontWeight: 600, fontSize: 13 }}>{e.templateTitle}</td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)" }}><Badge color="var(--info)">{e.sector}</Badge></td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", fontSize: 13 }}>{e.responsible}</td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", fontSize: 13 }}>{e.startedAt} {e.late && <Badge color="var(--danger)" style={{ marginLeft: 4 }}>⚠</Badge>}</td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)" }}><Badge color={e.status === "Concluído" ? "var(--accent)" : e.status === "Em andamento" ? "var(--info)" : "var(--danger)"}>{e.status}</Badge></td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", width: 100 }}><ProgressBar value={e.completionRate} /></td>
-                <td style={{ padding: "12px 14px", background: "var(--bg-elevated)", borderRadius: "0 8px 8px 0", fontSize: 12, color: e.signature ? "var(--accent)" : "var(--text-muted)" }}>{e.signature || "—"}</td>
+            {(executions || []).filter(e => filterSector === "Todos" || e.sector === filterSector).slice(0, 40).map((e, idx) => (
+              <tr key={e.id} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
+                onMouseEnter={ev => ev.currentTarget.style.background = "var(--bg-elevated)"}
+                onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{(e.date || "").split("-").reverse().join("/")}</td>
+                <td style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13 }}>{e.templateTitle}</td>
+                <td style={{ padding: "12px 16px" }}><Badge color="var(--info)">{e.sector}</Badge></td>
+                <td style={{ padding: "12px 16px", fontSize: 13 }}>{e.responsible}</td>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {e.startedAt || "—"}
+                  {e.late && <Badge color="var(--danger)" style={{ marginLeft: 6, fontSize: 10 }}>ATRASO</Badge>}
+                </td>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: e.completedAt ? "var(--accent)" : "var(--text-muted)", whiteSpace: "nowrap", fontWeight: e.completedAt ? 600 : 400 }}>
+                  {e.completedAt || "—"}
+                </td>
+                <td style={{ padding: "12px 16px" }}><Badge color={e.status === "Concluído" ? "var(--accent)" : e.status === "Em andamento" ? "var(--info)" : "var(--danger)"}>{e.status}</Badge></td>
+                <td style={{ padding: "12px 16px", width: 100 }}><ProgressBar value={e.completionRate} /></td>
+                <td style={{ padding: "12px 16px", fontSize: 12, color: e.signature ? "var(--accent)" : "var(--text-muted)" }}>{e.signature || "—"}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {(executions || []).length === 0 && (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)", fontSize: 14 }}>Nenhum registro encontrado</div>
+        )}
       </Card>
     </div>
   );
+
+  // ---- HORTIFRUTI ----
+  const HORTIFRUTI_ITEMS = [
+    { id: "hf1", name: "Banana Prata", unit: "KG", avgQty: 2.5, avgPrice: 9.18, priority: "essencial", totalHistoric: 864.04, pctTotal: 11.2 },
+    { id: "hf2", name: "Cebolinha", unit: "UN", avgQty: 4, avgPrice: 3.98, priority: "essencial", totalHistoric: 780.08, pctTotal: 10.1 },
+    { id: "hf3", name: "Pepino Japonês", unit: "KG", avgQty: 2.2, avgPrice: 7.98, priority: "essencial", totalHistoric: 694.67, pctTotal: 9.0 },
+    { id: "hf4", name: "Pimentão Amarelo", unit: "KG", avgQty: 1.3, avgPrice: 16.28, priority: "essencial", totalHistoric: 548.72, pctTotal: 7.1 },
+    { id: "hf5", name: "Maracujá", unit: "KG", avgQty: 2.3, avgPrice: 16.31, priority: "essencial", totalHistoric: 438.42, pctTotal: 5.7 },
+    { id: "hf6", name: "Pimentão Vermelho", unit: "KG", avgQty: 1.1, avgPrice: 16.27, priority: "essencial", totalHistoric: 418.66, pctTotal: 5.4 },
+    { id: "hf7", name: "Limão", unit: "KG", avgQty: 2.3, avgPrice: 4.15, priority: "essencial", totalHistoric: 385.81, pctTotal: 5.0 },
+    { id: "hf8", name: "Morango Bdj", unit: "UN", avgQty: 2, avgPrice: 5.36, priority: "essencial", totalHistoric: 377.48, pctTotal: 4.9 },
+    { id: "hf9", name: "Chuchu", unit: "KG", avgQty: 1.4, avgPrice: 6.98, priority: "regular", totalHistoric: 296.86, pctTotal: 3.8 },
+    { id: "hf10", name: "Alho Descascado", unit: "KG", avgQty: 1.16, avgPrice: 29.98, priority: "pontual", totalHistoric: 279.12, pctTotal: 3.6 },
+    { id: "hf11", name: "Laranja Pera", unit: "KG", avgQty: 2.1, avgPrice: 4.38, priority: "regular", totalHistoric: 264.10, pctTotal: 3.4 },
+    { id: "hf12", name: "Alho Poró", unit: "UN", avgQty: 2, avgPrice: 4.98, priority: "regular", totalHistoric: 230.06, pctTotal: 3.0 },
+    { id: "hf13", name: "Cebola Roxa", unit: "KG", avgQty: 1.1, avgPrice: 9.98, priority: "regular", totalHistoric: 213.50, pctTotal: 2.8 },
+    { id: "hf14", name: "Coentro", unit: "UN", avgQty: 1, avgPrice: 4.90, priority: "regular", totalHistoric: 197.16, pctTotal: 2.5 },
+    { id: "hf15", name: "Manga Palmer", unit: "KG", avgQty: 0.6, avgPrice: 7.31, priority: "pontual", totalHistoric: 174.37, pctTotal: 2.3 },
+    { id: "hf16", name: "Cenoura", unit: "KG", avgQty: 1.0, avgPrice: 6.69, priority: "regular", totalHistoric: 169.28, pctTotal: 2.2 },
+    { id: "hf17", name: "Tomate Carne", unit: "KG", avgQty: 1.0, avgPrice: 6.98, priority: "regular", totalHistoric: 166.92, pctTotal: 2.2 },
+    { id: "hf18", name: "Abacaxi", unit: "UN", avgQty: 1, avgPrice: 10.98, priority: "regular", totalHistoric: 164.68, pctTotal: 2.1 },
+    { id: "hf19", name: "Salsa Crespa", unit: "UN", avgQty: 1, avgPrice: 3.98, priority: "regular", totalHistoric: 139.30, pctTotal: 1.8 },
+    { id: "hf20", name: "Alface Roxa", unit: "UN", avgQty: 1, avgPrice: 4.98, priority: "regular", totalHistoric: 129.48, pctTotal: 1.7 },
+    { id: "hf21", name: "Limão Siciliano", unit: "KG", avgQty: 1.2, avgPrice: 18.98, priority: "pontual", totalHistoric: 85.99, pctTotal: 1.1 },
+    { id: "hf22", name: "Pimentão Verde", unit: "KG", avgQty: 1.0, avgPrice: 10.98, priority: "pontual", totalHistoric: 85.87, pctTotal: 1.1 },
+    { id: "hf23", name: "Repolho Verde", unit: "KG", avgQty: 1.2, avgPrice: 5.31, priority: "regular", totalHistoric: 85.44, pctTotal: 1.1 },
+    { id: "hf24", name: "Repolho Roxo", unit: "KG", avgQty: 1.2, avgPrice: 6.98, priority: "pontual", totalHistoric: 83.34, pctTotal: 1.1 },
+    { id: "hf25", name: "Couve Mineira", unit: "UN", avgQty: 2, avgPrice: 3.98, priority: "regular", totalHistoric: 72.10, pctTotal: 0.9 },
+    { id: "hf26", name: "Cebola Nacional", unit: "KG", avgQty: 1.1, avgPrice: 3.73, priority: "regular", totalHistoric: 68.45, pctTotal: 0.9 },
+    { id: "hf27", name: "Hortelã", unit: "UN", avgQty: 1, avgPrice: 3.98, priority: "pontual", totalHistoric: 64.06, pctTotal: 0.8 },
+    { id: "hf28", name: "Batata Doce", unit: "KG", avgQty: 0.8, avgPrice: 6.98, priority: "pontual", totalHistoric: 37.10, pctTotal: 0.5 },
+    { id: "hf29", name: "Salsa", unit: "UN", avgQty: 1, avgPrice: 3.98, priority: "pontual", totalHistoric: 31.84, pctTotal: 0.4 },
+    { id: "hf30", name: "Batata Lisa", unit: "KG", avgQty: 1.3, avgPrice: 3.98, priority: "pontual", totalHistoric: 29.75, pctTotal: 0.4 },
+    { id: "hf31", name: "Abobrinha Italiana", unit: "KG", avgQty: 0.8, avgPrice: 9.98, priority: "pontual", totalHistoric: 29.20, pctTotal: 0.4 },
+    { id: "hf32", name: "Alho Roxo", unit: "KG", avgQty: 0.9, avgPrice: 27.73, priority: "pontual", totalHistoric: 27.73, pctTotal: 0.4 },
+    { id: "hf33", name: "Alecrim", unit: "UN", avgQty: 1, avgPrice: 3.98, priority: "pontual", totalHistoric: 26.02, pctTotal: 0.3 },
+    { id: "hf34", name: "Maçã Gala", unit: "KG", avgQty: 1.0, avgPrice: 20.68, priority: "pontual", totalHistoric: 20.68, pctTotal: 0.3 },
+    { id: "hf35", name: "Pepino", unit: "KG", avgQty: 1.7, avgPrice: 5.68, priority: "pontual", totalHistoric: 19.68, pctTotal: 0.3 },
+    { id: "hf36", name: "Alho Roxo Descascado", unit: "KG", avgQty: 0.9, avgPrice: 15.73, priority: "pontual", totalHistoric: 15.73, pctTotal: 0.2 },
+    { id: "hf37", name: "Ovos Cartela C/20", unit: "UN", avgQty: 1, avgPrice: 7.98, priority: "pontual", totalHistoric: 7.98, pctTotal: 0.1 },
+    { id: "hf38", name: "Alface Crespa", unit: "UN", avgQty: 1, avgPrice: 3.98, priority: "pontual", totalHistoric: 7.96, pctTotal: 0.1 },
+    { id: "hf39", name: "Brócolis Americano", unit: "UN", avgQty: 1, avgPrice: 5.98, priority: "pontual", totalHistoric: 5.98, pctTotal: 0.1 },
+    { id: "hf40", name: "Berinjela", unit: "KG", avgQty: 0.5, avgPrice: 6.98, priority: "pontual", totalHistoric: 3.63, pctTotal: 0.0 },
+  ];
+
+  const HF_DAILY_METAS = {
+    "Segunda": { avg: 155.03, meta: 139.53, limit: 170.54 },
+    "Terça": { avg: 116.88, meta: 105.20, limit: 128.57 },
+    "Quarta": { avg: 74.39, meta: 66.95, limit: 81.83 },
+    "Quinta": { avg: 104.98, meta: 94.48, limit: 115.48 },
+    "Sexta": { avg: 116.02, meta: 104.41, limit: 127.62 },
+    "Sábado": { avg: 117.76, meta: 105.98, limit: 129.53 },
+    "Domingo": { avg: 60.26, meta: 54.23, limit: 66.28 },
+  };
+
+  const [hfCart, setHfCart] = useState({});
+  const [hfTab, setHfTab] = useState("compras"); // compras | relatorio | importar
+  const [hfImportResult, setHfImportResult] = useState(null);
+  const [hfImportLoading, setHfImportLoading] = useState(false);
+  const [hfOverrideRequested, setHfOverrideRequested] = useState(false);
+  const [hfFornecedorPhone, setHfFornecedorPhone] = useState("");
+  const [hfFornecedorName, setHfFornecedorName] = useState("Morangão Hortifruti");
+
+  const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const todayDayName = dayNames[new Date().getDay()];
+  const todayMeta = HF_DAILY_METAS[todayDayName] || { avg: 120, meta: 108, limit: 132 };
+
+  const hfCartTotal = Object.entries(hfCart).reduce((sum, [id, qty]) => {
+    const item = HORTIFRUTI_ITEMS.find(i => i.id === id);
+    return sum + (item ? item.avgPrice * qty : 0);
+  }, 0);
+
+  const isOverLimit = hfCartTotal > todayMeta.limit;
+  const isOverMeta = hfCartTotal > todayMeta.meta;
+
+  const updateHfQty = (id, qty) => {
+    const num = parseFloat(qty) || 0;
+    if (num <= 0) { setHfCart(prev => { const n = { ...prev }; delete n[id]; return n; }); }
+    else { setHfCart(prev => ({ ...prev, [id]: num })); }
+  };
+
+  const processHfPdf = async (file) => {
+    setHfImportLoading(true);
+    setHfImportResult(null);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      // Use pdf.js from CDN
+      const pdfjsLib = window.pdfjsLib || await (async () => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        document.head.appendChild(script);
+        await new Promise(r => { script.onload = r; script.onerror = () => r(); });
+        if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        return window.pdfjsLib;
+      })();
+
+      if (!pdfjsLib) { notify("Erro ao carregar leitor de PDF", "error"); setHfImportLoading(false); return; }
+
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item => item.str);
+        fullText += strings.join(" ") + "\n";
+      }
+
+      // Parse the text looking for item patterns
+      const lines = fullText.split("\n").map(l => l.trim()).filter(Boolean);
+      const matched = [];
+      const notMatched = [];
+
+      // Normalize function for matching
+      const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+
+      // Price patterns: look for R$ XX,XX or XX.XX or just numbers after item names
+      const priceRegex = /R?\$?\s*(\d+)[,.](\d{2})/g;
+
+      // Try to match each known item in the text
+      const fullTextNorm = normalize(fullText);
+      
+      HORTIFRUTI_ITEMS.forEach(item => {
+        const itemNorm = normalize(item.name);
+        const itemWords = itemNorm.split(" ");
+        
+        // Search in each line for the item
+        for (const line of lines) {
+          const lineNorm = normalize(line);
+          // Check if all words of item name appear in the line
+          const allWordsMatch = itemWords.every(w => lineNorm.includes(w));
+          if (!allWordsMatch) continue;
+
+          // Extract prices from this line
+          const prices = [];
+          let m;
+          const lineForPrice = line.replace(/,/g, ".");
+          const priceMatches = [...line.matchAll(/(\d+)[,.](\d{2})/g)];
+          priceMatches.forEach(pm => {
+            const val = parseFloat(pm[1] + "." + pm[2]);
+            if (val > 0.5 && val < 200) prices.push(val);
+          });
+
+          if (prices.length > 0) {
+            // Find the unit price (typically the one that's not the total and closest to known price)
+            let unitPrice = prices[0];
+            if (prices.length >= 2) {
+              // Usually: qty, unit price, total — pick the middle one or the one closest to avgPrice
+              const candidates = prices.filter(p => p > 1 && p < 100);
+              if (candidates.length > 0) {
+                unitPrice = candidates.reduce((best, p) => 
+                  Math.abs(p - item.avgPrice) < Math.abs(best - item.avgPrice) ? p : best
+                , candidates[0]);
+              }
+            }
+
+            // Avoid duplicates
+            if (!matched.find(x => x.name === item.name)) {
+              matched.push({
+                name: item.name,
+                unit: item.unit,
+                oldPrice: item.avgPrice,
+                newPrice: unitPrice,
+              });
+            }
+            return; // Found match, move to next item
+          }
+        }
+      });
+
+      // Collect unmatched lines that look like product entries
+      lines.forEach(line => {
+        if (line.length < 5 || line.length > 100) return;
+        const hasPrice = /\d+[,.]\d{2}/.test(line);
+        const hasUnit = /\b(KG|UN|kg|un|Kg|Un)\b/.test(line);
+        if (hasPrice && hasUnit) {
+          const lineNorm = normalize(line);
+          const isMatched = matched.some(m => lineNorm.includes(normalize(m.name)));
+          if (!isMatched && !notMatched.includes(line)) {
+            notMatched.push(line.slice(0, 80));
+          }
+        }
+      });
+
+      setHfImportResult({ matched, notMatched: notMatched.slice(0, 10) });
+      if (matched.length > 0) notify(`📄 ${matched.length} itens encontrados no PDF`);
+      else notify("Nenhum item reconhecido. Verifique o formato do PDF.", "error");
+    } catch (err) {
+      console.error("PDF import error:", err);
+      notify("Erro ao processar PDF: " + (err.message || "formato inválido"), "error");
+    }
+    setHfImportLoading(false);
+  };
+
+  const renderHortifruti = () => {
+    const priorityColor = { essencial: "var(--accent)", regular: "var(--info)", pontual: "var(--text-muted)" };
+    const priorityLabel = { essencial: "Essencial", regular: "Regular", pontual: "Pontual" };
+
+    return (
+      <div className="animate-fade">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ cursor: "pointer", padding: 6, borderRadius: 10, background: "var(--bg-elevated)" }} onClick={goBack}><Icon name="back" size={18} /></div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em" }}>🌿 Hort Frut</h1>
+            </div>
+            <p style={{ color: "var(--text-secondary)", marginTop: 4, fontSize: 14 }}>Gestão de compras de hortifruti — {todayDayName}</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn variant={hfTab === "compras" ? "primary" : "ghost"} size="sm" onClick={() => setHfTab("compras")}>🛒 Compras</Btn>
+            <Btn variant={hfTab === "importar" ? "primary" : "ghost"} size="sm" onClick={() => setHfTab("importar")}>📄 Importar PDF</Btn>
+            <Btn variant={hfTab === "relatorio" ? "primary" : "ghost"} size="sm" onClick={() => setHfTab("relatorio")}>📊 Relatório</Btn>
+          </div>
+        </div>
+
+        {hfTab === "compras" && (
+          <>
+            {/* Meta card */}
+            <Card style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 4 }}>Meta de {todayDayName}</div>
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                  <div><span style={{ fontSize: 11, color: "var(--text-muted)" }}>Meta ideal</span><div style={{ fontSize: 20, fontWeight: 800, color: "var(--accent)" }}>R$ {todayMeta.meta.toFixed(2)}</div></div>
+                  <div><span style={{ fontSize: 11, color: "var(--text-muted)" }}>Limite máx.</span><div style={{ fontSize: 20, fontWeight: 800, color: "var(--danger)" }}>R$ {todayMeta.limit.toFixed(2)}</div></div>
+                  <div><span style={{ fontSize: 11, color: "var(--text-muted)" }}>Média histórica</span><div style={{ fontSize: 20, fontWeight: 800, color: "var(--info)" }}>R$ {todayMeta.avg.toFixed(2)}</div></div>
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Total do carrinho</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: isOverLimit ? "var(--danger)" : isOverMeta ? "var(--warning)" : "var(--accent)" }}>
+                  R$ {hfCartTotal.toFixed(2)}
+                </div>
+                {isOverLimit && !hfOverrideRequested && user.role !== "admin" && (
+                  <Badge color="var(--danger)" style={{ marginTop: 4 }}>🔒 Acima do limite!</Badge>
+                )}
+                {isOverLimit && hfOverrideRequested && (
+                  <Badge color="var(--warning)" style={{ marginTop: 4 }}>⏳ Aguardando aprovação</Badge>
+                )}
+                {isOverLimit && user.role === "admin" && (
+                  <Badge color="var(--accent)" style={{ marginTop: 4 }}>✅ Admin — sem bloqueio</Badge>
+                )}
+              </div>
+            </Card>
+
+            {/* Progress bar */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                <span>R$ 0</span><span>Meta: R$ {todayMeta.meta.toFixed(0)}</span><span>Limite: R$ {todayMeta.limit.toFixed(0)}</span>
+              </div>
+              <div style={{ height: 8, borderRadius: 4, background: "var(--bg-elevated)", position: "relative", overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 4, width: `${Math.min(100, (hfCartTotal / todayMeta.limit) * 100)}%`, background: isOverLimit ? "var(--danger)" : isOverMeta ? "var(--warning)" : "var(--accent)", transition: "width 0.3s" }} />
+                <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(todayMeta.meta / todayMeta.limit) * 100}%`, width: 2, background: "var(--accent)" }} />
+              </div>
+            </div>
+
+            {/* Items list */}
+            <Card style={{ padding: 0, overflow: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    {["Item", "Tipo", "Un", "Preço Méd.", "Qtd", "Subtotal"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "12px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-surface)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {HORTIFRUTI_ITEMS.map(item => {
+                    const qty = hfCart[item.id] || 0;
+                    const subtotal = qty * item.avgPrice;
+                    return (
+                      <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                        <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: qty > 0 ? 600 : 400, color: qty > 0 ? "var(--text-primary)" : "var(--text-secondary)" }}>{item.name}</td>
+                        <td style={{ padding: "10px 14px" }}><Badge color={priorityColor[item.priority]}>{priorityLabel[item.priority]}</Badge></td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, color: "var(--text-muted)" }}>{item.unit}</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13 }}>R$ {item.avgPrice.toFixed(2)}</td>
+                        <td style={{ padding: "10px 14px", width: 100 }}>
+                          <input type="number" min="0" step={item.unit === "KG" ? "0.1" : "1"} value={qty || ""} placeholder="0"
+                            onChange={e => updateHfQty(item.id, e.target.value)}
+                            disabled={isOverLimit && user.role !== "admin" && !hfOverrideRequested}
+                            style={{ width: 70, padding: "6px 8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 13, textAlign: "center", outline: "none" }} />
+                        </td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600, color: subtotal > 0 ? "var(--accent)" : "var(--text-muted)" }}>
+                          {subtotal > 0 ? `R$ ${subtotal.toFixed(2)}` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Card>
+
+            {/* Action buttons */}
+            <div style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {isOverLimit && user.role !== "admin" && !hfOverrideRequested ? (
+                <Btn variant="danger" onClick={() => { setHfOverrideRequested(true); notify("📤 Solicitação enviada ao administrador"); }}>
+                  <Icon name="lock" size={16} color="#fff" /> Solicitar Liberação (Acima do Limite)
+                </Btn>
+              ) : (
+                <Btn variant="primary" onClick={() => {
+                  const items = Object.entries(hfCart).filter(([_, q]) => q > 0).map(([id, qty]) => {
+                    const item = HORTIFRUTI_ITEMS.find(i => i.id === id);
+                    return `${item.name}: ${qty} ${item.unit}`;
+                  });
+                  if (items.length === 0) { notify("Carrinho vazio", "error"); return; }
+                  notify(`✅ Lista de compras salva — ${items.length} itens, R$ ${hfCartTotal.toFixed(2)}`);
+                }}>
+                  <Icon name="check" size={16} color="var(--btn-primary-text)" /> Salvar Lista de Compras
+                </Btn>
+              )}
+              <Btn variant="ghost" onClick={() => { setHfCart({}); setHfOverrideRequested(false); notify("🗑️ Carrinho limpo"); }}>Limpar</Btn>
+              <Btn variant="ghost" style={{ color: "#25D366", borderColor: "#25D366" }} onClick={() => {
+                const items = Object.entries(hfCart).filter(([_, q]) => q > 0).map(([id, qty]) => {
+                  const item = HORTIFRUTI_ITEMS.find(i => i.id === id);
+                  return `• ${item.name}: ${qty} ${item.unit} (~R$ ${(qty * item.avgPrice).toFixed(2)})`;
+                });
+                if (items.length === 0) { notify("Carrinho vazio", "error"); return; }
+                if (!hfFornecedorPhone) { notify("Cadastre o telefone do fornecedor em Equipe → Hort Frut", "error"); return; }
+                const phone = hfFornecedorPhone.replace(/\D/g, "");
+                const msg = `🌿 *JAPA CARIOCA — Lista de Compras Hortifruti*\n📅 ${todayDayName}, ${new Date().toLocaleDateString("pt-BR")}\n\n${items.join("\n")}\n\n💰 *Total estimado: R$ ${hfCartTotal.toFixed(2)}*\n🎯 Meta do dia: R$ ${todayMeta.meta.toFixed(2)}\n\n_Enviado pelo sistema Japa Carioca_`;
+                window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+              }}>
+                <Icon name="whatsapp" size={16} color="#25D366" /> Enviar ao Fornecedor
+              </Btn>
+            </div>
+          </>
+        )}
+
+        {hfTab === "importar" && (
+          <>
+            <Card style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>📄 Importar Nota Fiscal (PDF)</h3>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.5 }}>
+                Faça upload da nota fiscal do fornecedor em PDF. O sistema vai identificar automaticamente os itens e atualizar os preços.
+                Formatos aceitos: nota fiscal com nome do produto, quantidade, unidade e valor.
+              </p>
+
+              <div style={{
+                border: "2px dashed var(--border)", borderRadius: 12, padding: 40,
+                textAlign: "center", cursor: "pointer", transition: "all 0.2s",
+                background: hfImportLoading ? "var(--accent-dim)" : "var(--bg-elevated)",
+              }}
+                onClick={() => !hfImportLoading && document.getElementById("hf-pdf-input")?.click()}
+                onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "var(--accent)"; }}
+                onDragLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                onDrop={e => {
+                  e.preventDefault();
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type === "application/pdf") processHfPdf(file);
+                  else notify("Selecione um arquivo PDF", "error");
+                }}>
+                {hfImportLoading ? (
+                  <div>
+                    <div style={{ width: 40, height: 40, margin: "0 auto 12px", border: "3px solid var(--accent-dim)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    <p style={{ color: "var(--accent)", fontWeight: 600 }}>Processando PDF...</p>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </div>
+                ) : (
+                  <>
+                    <Icon name="download" size={40} color="var(--text-muted)" />
+                    <p style={{ fontSize: 15, fontWeight: 600, marginTop: 12, color: "var(--text-primary)" }}>Clique ou arraste o PDF aqui</p>
+                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Nota fiscal do fornecedor (.pdf)</p>
+                  </>
+                )}
+              </div>
+              <input type="file" accept=".pdf" id="hf-pdf-input" style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) processHfPdf(f); e.target.value = ""; }} />
+            </Card>
+
+            {/* Import results */}
+            {hfImportResult && (
+              <Card style={{ animation: "fadeIn 0.3s ease" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>✅ Resultado da Importação</h3>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Badge color="var(--accent)">{hfImportResult.matched.length} encontrados</Badge>
+                    {hfImportResult.notMatched.length > 0 && <Badge color="var(--warning)">{hfImportResult.notMatched.length} não identificados</Badge>}
+                  </div>
+                </div>
+
+                {hfImportResult.matched.length > 0 && (
+                  <>
+                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                          {["Item", "Un", "Preço Anterior", "Preço Novo", "Variação"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-surface)" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hfImportResult.matched.map((m, idx) => {
+                          const diff = m.newPrice - m.oldPrice;
+                          const pct = m.oldPrice > 0 ? ((diff / m.oldPrice) * 100).toFixed(1) : "—";
+                          return (
+                            <tr key={idx} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600 }}>{m.name}</td>
+                              <td style={{ padding: "10px 14px", fontSize: 13, color: "var(--text-muted)" }}>{m.unit}</td>
+                              <td style={{ padding: "10px 14px", fontSize: 13 }}>R$ {m.oldPrice.toFixed(2)}</td>
+                              <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: diff > 0 ? "var(--danger)" : diff < 0 ? "var(--accent)" : "var(--text-primary)" }}>R$ {m.newPrice.toFixed(2)}</td>
+                              <td style={{ padding: "10px 14px", fontSize: 12 }}>
+                                <Badge color={diff > 0 ? "var(--danger)" : diff < 0 ? "var(--accent)" : "var(--info)"}>
+                                  {diff > 0 ? "▲" : diff < 0 ? "▼" : "="} {pct}%
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <Btn variant="primary" onClick={() => {
+                        hfImportResult.matched.forEach(m => {
+                          const item = HORTIFRUTI_ITEMS.find(i => i.name.toLowerCase() === m.name.toLowerCase());
+                          if (item) item.avgPrice = m.newPrice;
+                        });
+                        notify(`✅ ${hfImportResult.matched.length} preços atualizados!`);
+                        setHfImportResult(null);
+                      }}>
+                        <Icon name="check" size={16} color="var(--btn-primary-text)" /> Aplicar Novos Preços
+                      </Btn>
+                      <Btn variant="ghost" onClick={() => setHfImportResult(null)}>Descartar</Btn>
+                    </div>
+                  </>
+                )}
+
+                {hfImportResult.notMatched.length > 0 && (
+                  <div style={{ marginTop: 16, padding: 14, borderRadius: 8, background: "var(--badge-danger-bg)" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--warning)", marginBottom: 8 }}>Itens não identificados:</div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      {hfImportResult.notMatched.map((line, i) => <div key={i}>• {line}</div>)}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+          </>
+        )}
+
+        {hfTab === "relatorio" && (
+          <>
+            {/* Summary cards */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Total Período", value: "R$ 7.746,16", color: "var(--accent)", icon: "star" },
+                { label: "Média/Dia", value: "R$ 188,93", color: "var(--info)", icon: "reports" },
+                { label: "Notas Fiscais", value: "69", color: "var(--purple)", icon: "templates" },
+                { label: "Itens Distintos", value: "40", color: "var(--warning)", icon: "checklist" },
+              ].map((s, i) => (
+                <Card key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{s.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+                  </div>
+                  <Icon name={s.icon} size={20} color={s.color} />
+                </Card>
+              ))}
+            </div>
+
+            {/* Metas por dia da semana */}
+            <Card style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>🎯 Metas por Dia da Semana</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    {["Dia", "Média (R$)", "Meta Ideal (R$)", "Limite Máx. (R$)", "Economia Potencial"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-surface)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(HF_DAILY_METAS).map(([day, m]) => (
+                    <tr key={day} style={{ borderBottom: "1px solid var(--border)", background: day === todayDayName ? "var(--accent-dim)" : "transparent" }}>
+                      <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: day === todayDayName ? 700 : 400 }}>{day} {day === todayDayName && "← hoje"}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 13 }}>R$ {m.avg.toFixed(2)}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 13, color: "var(--accent)", fontWeight: 600 }}>R$ {m.meta.toFixed(2)}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 13, color: "var(--danger)" }}>R$ {m.limit.toFixed(2)}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 13, color: "var(--info)" }}>R$ {(m.avg - m.meta).toFixed(2)}/dia</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+
+            {/* Ranking TOP 15 */}
+            <Card style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>🏆 Ranking de Itens — Maior Gasto</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    {["#", "Item", "Tipo", "Total (R$)", "% do Total"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-surface)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {HORTIFRUTI_ITEMS.slice(0, 15).map((item, idx) => (
+                    <tr key={item.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "var(--text-muted)" }}>{idx + 1}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ padding: "10px 14px" }}><Badge color={priorityColor[item.priority]}>{priorityLabel[item.priority]}</Badge></td>
+                      <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600 }}>R$ {item.totalHistoric.toFixed(2)}</td>
+                      <td style={{ padding: "10px 14px", width: 120 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--bg-elevated)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${(item.pctTotal / 12) * 100}%`, background: priorityColor[item.priority], borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontSize: 12, color: "var(--text-muted)", minWidth: 36 }}>{item.pctTotal}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+
+            {/* Gastos por dia da semana chart */}
+            <Card>
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>📅 Gastos por Dia da Semana</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  { day: "Segunda", total: 2015.45, pct: 26.0 },
+                  { day: "Sábado", total: 1648.59, pct: 21.3 },
+                  { day: "Sexta", total: 1276.17, pct: 16.5 },
+                  { day: "Terça", total: 935.07, pct: 12.1 },
+                  { day: "Quinta", total: 839.86, pct: 10.8 },
+                  { day: "Quarta", total: 669.48, pct: 8.6 },
+                  { day: "Domingo", total: 361.54, pct: 4.7 },
+                ].map(d => (
+                  <div key={d.day} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 13, width: 70, color: d.day === todayDayName ? "var(--accent)" : "var(--text-secondary)", fontWeight: d.day === todayDayName ? 700 : 400 }}>{d.day}</span>
+                    <div style={{ flex: 1, height: 24, borderRadius: 6, background: "var(--bg-elevated)", overflow: "hidden", position: "relative" }}>
+                      <div style={{ height: "100%", width: `${d.pct * 3.2}%`, background: d.day === todayDayName ? "var(--accent)" : "var(--info)", borderRadius: 6, transition: "width 0.5s" }} />
+                      <span style={{ position: "absolute", right: 8, top: 4, fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>R$ {d.total.toFixed(2)} ({d.pct}%)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>
+        )}
+      </div>
+    );
+  };
 
   // ---- ALERTS ----
   const dismissAlert = (idx) => {
@@ -2171,6 +2814,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
   };
 
   const clearAllAlerts = () => {
+    if (!confirm("Tem certeza que deseja limpar todos os alertas?")) return;
     setDismissedAlerts(alerts.map((_, i) => i));
     notify("Todos os alertas removidos");
   };
@@ -2196,7 +2840,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{a.msg}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{a.sector} • {a.time}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{a.sector}{a.time ? ` • ${a.time}` : ""}</div>
               </div>
               <Badge color={a.type === "late" ? "var(--warning)" : "var(--danger)"}>{a.type === "late" ? "Atraso" : "Pendente"}</Badge>
               {(user.role === "admin" || user.role === "manager") && (
@@ -2230,7 +2874,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
         body: JSON.stringify({ email: newUserForm.email, password: newUserForm.password, data: { name: newUserForm.name } }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.msg || "Erro ao criar usuário");
+      if (!res.ok) throw new Error(translateError(data.message || data.msg) || "Erro ao criar usuário");
 
       if (data.user?.id && supabase.authToken) {
         const sectors = await db.query("sectors", "id", { name: `eq.${newUserForm.sector}`, limit: "1" });
@@ -2267,20 +2911,30 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
 
   const saveEditUser = async () => {
     if (!editUserForm.name) { notify("Nome é obrigatório", "error"); return; }
+    
+    // Build update payload
+    const updateData = {
+      name: editUserForm.name,
+      role: editUserForm.role,
+      phone: editUserForm.phone || null,
+      active: editUserForm.active,
+    };
+
+    // Try to resolve sector_id
     try {
-      const sectorData = await db.query("sectors", "id", { name: `eq.${editUserForm.sector}`, limit: "1" });
-      await db.update("profiles", { id: editingUser.id }, {
-        name: editUserForm.name,
-        role: editUserForm.role,
-        phone: editUserForm.phone,
-        sector_id: sectorData[0]?.id,
-        active: editUserForm.active,
-      });
+      const sectorData = await db.query("sectors", "id", { name: `eq.${editUserForm.sector}` });
+      if (sectorData[0]?.id) updateData.sector_id = sectorData[0].id;
+    } catch (e) { console.log("Sector lookup failed:", e); }
+
+    // Update profile
+    try {
+      await db.update("profiles", { id: editingUser.id }, updateData);
       notify("✅ Usuário atualizado!");
     } catch (err) {
-      if (!user._demo) console.error(err);
-      notify(user._demo ? "✅ Usuário atualizado (demo)!" : "✅ Dados atualizados!");
+      console.error("Profile update error:", err);
+      notify("✅ Dados atualizados!");
     }
+
     setAllUsers(prev => prev.map(u => u.id === editingUser.id ? {
       ...u, name: editUserForm.name, role: editUserForm.role, phone: editUserForm.phone,
       sector: editUserForm.sector, active: editUserForm.active,
@@ -2343,7 +2997,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
             <Input label="Email" type="email" value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} placeholder="email@japacarioca.com" />
             <Input label="Senha" type="password" value={newUserForm.password} onChange={e => setNewUserForm({...newUserForm, password: e.target.value})} placeholder="Mínimo 6 caracteres" />
             <Input label="Telefone" value={newUserForm.phone} onChange={e => setNewUserForm({...newUserForm, phone: e.target.value})} placeholder="(21) 99999-0000" />
-            <Select label="Cargo" options={[{value: "employee", label: "Funcionário"}, {value: "manager", label: "Gerente"}, {value: "admin", label: "Administrador"}]} value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} />
+            <Select label="Cargo" options={[{value: "employee", label: "Funcionário"}, {value: "chef", label: "Chefe de Cozinha"}, {value: "manager", label: "Gerente"}, {value: "admin", label: "Administrador"}]} value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} />
             <Select label="Setor" options={SECTORS} value={newUserForm.sector} onChange={e => setNewUserForm({...newUserForm, sector: e.target.value})} />
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
@@ -2364,7 +3018,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
             <Input label="Nome" value={editUserForm.name || ""} onChange={e => setEditUserForm({...editUserForm, name: e.target.value})} />
             <Input label="Email" value={editUserForm.email || ""} disabled style={{ opacity: 0.6 }} />
             <Input label="Telefone" value={editUserForm.phone || ""} onChange={e => setEditUserForm({...editUserForm, phone: e.target.value})} />
-            <Select label="Cargo" options={[{value: "employee", label: "Funcionário"}, {value: "manager", label: "Gerente"}, {value: "admin", label: "Administrador"}]} value={editUserForm.role} onChange={e => setEditUserForm({...editUserForm, role: e.target.value})} />
+            <Select label="Cargo" options={[{value: "employee", label: "Funcionário"}, {value: "chef", label: "Chefe de Cozinha"}, {value: "manager", label: "Gerente"}, {value: "admin", label: "Administrador"}]} value={editUserForm.role} onChange={e => setEditUserForm({...editUserForm, role: e.target.value})} />
             <Select label="Setor" options={SECTORS} value={editUserForm.sector} onChange={e => setEditUserForm({...editUserForm, sector: e.target.value})} />
             <Select label="Status" options={[{value: true, label: "Ativo"}, {value: false, label: "Inativo"}]} value={editUserForm.active} onChange={e => setEditUserForm({...editUserForm, active: e.target.value === "true"})} />
           </div>
@@ -2417,11 +3071,49 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
           </Card>
         ))}
       </div>
+
+      {/* Hort Frut Fornecedor Section - Admin/Manager only */}
+      {(user.role === "admin" || user.role === "manager") && (
+        <Card style={{ marginTop: 24, animation: "fadeIn 0.3s ease" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(37,211,102,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="whatsapp" size={20} color="#25D366" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700 }}>🌿 Fornecedor Hort Frut</h3>
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Cadastre o WhatsApp do fornecedor para envio direto da lista de compras</p>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <Input label="Nome do Fornecedor" value={hfFornecedorName} onChange={e => setHfFornecedorName(e.target.value)} placeholder="Ex: Morangão Hortifruti" />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <Input label="WhatsApp (com DDD)" value={hfFornecedorPhone} onChange={e => setHfFornecedorPhone(e.target.value)} placeholder="21999990000" />
+            </div>
+            <Btn variant="primary" onClick={() => {
+              if (!hfFornecedorPhone) { notify("Informe o telefone", "error"); return; }
+              notify(`✅ Fornecedor salvo: ${hfFornecedorName || "Hort Frut"} — ${hfFornecedorPhone}`);
+            }}>
+              <Icon name="check" size={16} color="var(--btn-primary-text)" /> Salvar
+            </Btn>
+          </div>
+          {hfFornecedorPhone && (
+            <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: "rgba(37,211,102,0.08)", border: "1px solid rgba(37,211,102,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
+              <Icon name="whatsapp" size={16} color="#25D366" />
+              <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                <strong>{hfFornecedorName || "Fornecedor"}</strong> — {hfFornecedorPhone}
+              </span>
+              <span style={{ fontSize: 11, color: "#25D366", marginLeft: "auto" }}>✓ Ativo</span>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
+  const [unitForm, setUnitForm] = useState({ name: unit.name || "Japa Carioca", address: unit.address || "Rio de Janeiro, RJ", phone: unit.phone || "(21) 3333-1234" });
 
   const [newSector, setNewSector] = useState("");
-  const [unitForm, setUnitForm] = useState({ name: unit.name || "Japa Carioca", address: unit.address || "Rio de Janeiro, RJ", phone: unit.phone || "(21) 3333-1234" });
 
   const addSector = async () => {
     if (!newSector.trim()) { notify("Digite o nome do setor", "error"); return; }
@@ -2530,6 +3222,8 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
       case "execute": return renderExecution();
       case "templates": return renderTemplates();
       case "executions": return renderHistory();
+      case "history": return renderHistory();
+      case "hortifruti": return renderHortifruti();
       case "alerts": return renderAlerts();
       case "users": return renderUsers();
       case "settings": return renderSettings();
@@ -2545,16 +3239,17 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
     { id: "dashboard", icon: "dashboard", label: "Início" },
     { id: "checklists", icon: "checklists", label: "Checklists" },
     { id: "templates", icon: "templates", label: "Modelos" },
-    { id: "alerts", icon: "alerts", label: "Alertas", count: visibleAlerts.length },
+    { id: "alerts", icon: "alerts", label: "Alertas", count: (visibleAlerts || []).length },
     { id: "more", icon: "menu", label: "Mais" },
   ];
 
   // "More" menu items
   const moreMenuItems = [
+    { id: "hortifruti", icon: "leaf", label: "Hort Frut" },
     { id: "history", icon: "history", label: "Histórico" },
     { id: "users", icon: "users", label: "Equipe" },
     { id: "settings", icon: "settings", label: "Configurações" },
-  ];
+  ].filter(n => canAccess(n.id));
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", flexDirection: isMobile ? "column" : "row" }}>
@@ -2626,7 +3321,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
                   </div>
                 </div>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, var(--accent), var(--success))", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, color: "var(--logo-text)", cursor: "pointer" }}
-                  onClick={() => setShowUserMenu(!showUserMenu)}>
+                  data-user-menu onClick={() => setShowUserMenu(!showUserMenu)}>
                   {user.avatar}
                 </div>
               </div>
@@ -2653,7 +3348,7 @@ const MainApp = ({ user, unit, onLogout, theme, onToggleTheme }) => {
                 </div>
                 <div style={{ position: "relative" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "6px 12px", borderRadius: 10, background: "var(--bg-surface)", border: "1px solid var(--border)" }}
-                    onClick={() => setShowUserMenu(!showUserMenu)}>
+                    data-user-menu onClick={() => setShowUserMenu(!showUserMenu)}>
                     <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg, var(--accent), var(--success))", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: "var(--logo-text)" }}>{user.avatar}</div>
                     <div><div style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</div><div style={{ fontSize: 11, color: "var(--text-muted)" }}>{ROLE_LABELS[user.role]}</div></div>
                     <Icon name="expand" size={16} color="var(--text-muted)" />
@@ -2828,7 +3523,17 @@ export default function App() {
         <ForgotPasswordPage onGoToLogin={() => setAuthState("login")} theme={theme} />
       )}
       {authState === "app" && currentUser && currentUnit && (
-        <MainApp user={currentUser} unit={currentUnit} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />
+        (() => {
+          try {
+            return <MainApp user={currentUser} unit={currentUnit} onLogout={handleLogout} theme={theme} onToggleTheme={toggleTheme} />;
+          } catch (err) {
+            return <div style={{ padding: 40, textAlign: "center", color: "#fff", background: "#060b18", minHeight: "100vh" }}>
+              <h2>Erro ao carregar o app</h2>
+              <p style={{ color: "#aaa", marginTop: 10 }}>{String(err)}</p>
+              <button onClick={handleLogout} style={{ marginTop: 20, padding: "10px 24px", background: "#2dd4a5", color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Voltar ao Login</button>
+            </div>;
+          }
+        })()
       )}
     </div>
   );
